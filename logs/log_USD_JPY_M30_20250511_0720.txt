@@ -1,0 +1,18 @@
+Timestamp: 20250511_0720
+Instrument: USD_JPY
+Granularity: M30
+
+--- Weather Report ---
+Sky: Unknown (insufficient cloud)
+Cloud: Unknown thickness
+Wind: Unfavorable headwinds
+Freedom: Path is tangled in the forest
+Momentum: Quick favorable winds
+
+--- Intent ---
+Bias: Neutral
+Confidence: Low
+Comment: Signals are mixed or indecisive. Stay observant.
+
+--- Shadow Trade ---
+Simulated Trade: neutral (low) - USD_JPY - 100 units

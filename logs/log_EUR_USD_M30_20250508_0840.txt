@@ -1,0 +1,18 @@
+Timestamp: 20250508_0840
+Instrument: EUR_USD
+Granularity: M30
+
+--- Weather Report ---
+Sky: Stormy
+Cloud: Thick and stable cloud
+Wind: Favorable tailwinds
+Freedom: Path is tangled in the forest
+Momentum: Slack and sluggish sails
+
+--- Intent ---
+Bias: Bearish
+Confidence: Moderate
+Comment: The sky is stormy and dark. Momentum is fading. Cloud hangs heavy overhead.
+
+--- Shadow Trade ---
+Simulated Trade: bearish (moderate) - EUR_USD - 100 units
