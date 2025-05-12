@@ -1,7 +1,8 @@
 # trade_executor.py
-# Executes and tracks trades — shadow or real — with Ichimoku-based exit logic
+# Executes and tracks trades — shadow or real — with Ichimoku-based exit logic and dynamic position sizing
 
 import oandapyV20.endpoints.orders as orders
+import oandapyV20.endpoints.accounts as accounts
 import os
 from datetime import datetime
 import csv
@@ -14,13 +15,14 @@ def log_shadow_trade(trade):
     """
     Append a shadow trade to CSV log.
     """
-    header = ["timestamp", "instrument", "direction", "entry_price", "entry_index"]
+    header = ["timestamp", "instrument", "direction", "entry_price", "entry_index", "units"]
     data = [
         datetime.now().isoformat(),
         trade["instrument"],
         trade["direction"],
         trade["entry_price"],
-        trade["entry_index"]
+        trade["entry_index"],
+        trade["units"]
     ]
 
     file_exists = os.path.isfile(TRADE_LOG_PATH)
@@ -31,7 +33,25 @@ def log_shadow_trade(trade):
             writer.writerow(header)
         writer.writerow(data)
 
-def execute_trade(intent, instrument, client, units=100, shadow=True, current_candle=None, candle_index=None):
+def get_account_balance(client):
+    """
+    Fetch the current account balance from OANDA.
+    """
+    r = accounts.AccountDetails(accountID=client.accountID)
+    client.request(r)
+    balance = float(r.response['account']['balance'])
+    return balance
+
+def calculate_dynamic_units(balance, instrument, risk_pct=0.01, est_stop_loss_pips=20):
+    """
+    Calculate position size based on account balance and risk.
+    """
+    risk_amount = balance * risk_pct  # e.g., 1% of $200 = $2
+    pip_value_per_1000 = 0.10  # Approximate for most pairs
+    unit_blocks = risk_amount / (pip_value_per_1000 * est_stop_loss_pips)
+    return int(unit_blocks * 1000)  # round down to nearest whole number of units
+
+def execute_trade(intent, instrument, client, shadow=True, current_candle=None, candle_index=None):
     """
     Place or simulate a market order based on intent.
     Store shadow trades in memory.
@@ -43,17 +63,16 @@ def execute_trade(intent, instrument, client, units=100, shadow=True, current_ca
         print("[EXECUTOR] No clear directional bias. Standing down.")
         return
 
-    # === Confidence-based risk scaling ===
-    if confidence == "strong":
-        scaled_units = 300
-    elif confidence == "moderate":
-        scaled_units = 150
-    else:
+    if confidence not in ["moderate", "strong"]:
         print("[EXECUTOR] Confidence too low to act. Standing down.")
         return
 
+    # === Fetch balance + calculate position size dynamically ===
+    balance = get_account_balance(client)
+    units = calculate_dynamic_units(balance, instrument)
+
     side = "buy" if bias == "bullish" else "sell"
-    units_signed = scaled_units if side == "buy" else -scaled_units
+    units_signed = units if side == "buy" else -units
 
     if shadow:
         print(f"[SHADOW MODE] Would place {side.upper()} MARKET order for {instrument} ({units_signed} units).")
@@ -64,7 +83,8 @@ def execute_trade(intent, instrument, client, units=100, shadow=True, current_ca
                 "instrument": instrument,
                 "direction": bias,
                 "entry_price": current_candle['close'],
-                "entry_index": candle_index
+                "entry_index": candle_index,
+                "units": units
             })
             log_shadow_trade(open_trades[-1])
         return
@@ -145,10 +165,9 @@ def evaluate_open_trades(candles, ichimoku_lines, instrument):
         if should_exit_trade(trade, candles, ichimoku_lines):
             exit_price = candles[idx]['close']
             pnl = exit_price - trade['entry_price'] if trade['direction'] == "bullish" else trade['entry_price'] - exit_price
-            pnl_pips = round(pnl * 10000, 1)  # Approximate to pips
+            pnl_pips = round(pnl * 10000, 1)
             print(f"[SHADOW EXIT] {instrument} | {trade['direction'].upper()} exit | P/L: {pnl_pips} pips")
 
-            # Optional: write to log file
             timestamp = datetime.now().strftime("%Y%m%d_%H%M")
             log_path = f"logs/exit_{instrument}_{timestamp}.txt"
             with open(log_path, "w") as f:
