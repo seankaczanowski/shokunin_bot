@@ -36,7 +36,8 @@ def interpret_weather(weather):
         return {
             "bias": "bullish",
             "confidence": "moderate" if score == 3 else "strong",
-            "comment": " ".join(comment_parts)
+            "comment": " ".join(comment_parts),
+            "score": score
         }
 
     # === BEARISH SIGNALS ===
@@ -63,7 +64,8 @@ def interpret_weather(weather):
         return {
             "bias": "bearish",
             "confidence": "moderate" if score == 3 else "strong",
-            "comment": " ".join(comment_parts)
+            "comment": " ".join(comment_parts),
+            "score": score
         }
 
     # === MIXED OR UNCLEAR ===
@@ -75,18 +77,21 @@ def interpret_weather(weather):
         return {
             "bias": "avoid",
             "confidence": "low",
-            "comment": "Too many unknowns to act decisively."
+            "comment": "Too many unknowns to act decisively.",
+            "score": 0
         }
 
     if cloud == "Thin and fragile cloud" and momentum == "Quick favorable winds":
         return {
             "bias": "bullish",
             "confidence": "low",
-            "comment": "Momentum is rising, but the cloud lacks substance. Proceed lightly."
+            "comment": "Momentum is rising, but the cloud lacks substance. Proceed lightly.",
+            "score": 1
         }
 
     return {
         "bias": "neutral",
         "confidence": "low",
-        "comment": "Signals are mixed or indecisive. Stay observant."
+        "comment": "Signals are mixed or indecisive. Stay observant.",
+        "score": 0
     }

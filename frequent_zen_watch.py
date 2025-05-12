@@ -41,7 +41,7 @@ def print_trade_ticker(instrument, intent, current_price):
         "bullish": "📈",
         "bearish": "📉",
         "neutral": "🌫️",
-        "avoid": "🛘"
+        "avoid": "🚸"
     }.get(intent["bias"], "❓")
 
     conf_icon = {
@@ -50,7 +50,7 @@ def print_trade_ticker(instrument, intent, current_price):
         "low": "🌱"
     }.get(intent["confidence"], "❔")
 
-    print(f"[TICKER] {instrument} | {status_icon} {intent['bias'].upper():8} | {conf_icon} {intent['confidence'].capitalize():9} | Price: {current_price:.5f}")
+    print(f"[TICKER] {instrument} | {status_icon} {intent['bias'].upper():8} | {conf_icon} {intent['confidence'].capitalize():9} | Score: {intent.get('score', 'N/A')} | Price: {current_price:.5f}")
 
 def run_zen_cycle():
     for instrument in INSTRUMENTS:
@@ -78,7 +78,7 @@ def run_zen_cycle():
             print(f"{k.title()}: {v}")
 
         print("\n--- Intent ---")
-        print(f"Bias: {intent['bias'].capitalize()} | Confidence: {intent['confidence'].capitalize()}")
+        print(f"Bias: {intent['bias'].capitalize()} | Confidence: {intent['confidence'].capitalize()} | Score: {intent.get('score', 'N/A')}")
         print(f"Comment: {intent['comment']}")
 
         # === Execute shadow trade with context ===
@@ -102,6 +102,7 @@ def run_zen_cycle():
             f.write("\n--- Intent ---\n")
             f.write(f"Bias: {intent['bias'].capitalize()}\n")
             f.write(f"Confidence: {intent['confidence'].capitalize()}\n")
+            f.write(f"Score: {intent.get('score', 'N/A')}\n")
             f.write(f"Comment: {intent['comment']}\n")
             f.write("\n--- Shadow Trade ---\n")
             f.write(f"Simulated Trade: {intent['bias']} ({intent['confidence']}) - {instrument} - 100 units\n")
