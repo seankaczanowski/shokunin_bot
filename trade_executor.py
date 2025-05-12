@@ -43,12 +43,17 @@ def execute_trade(intent, instrument, client, units=100, shadow=True, current_ca
         print("[EXECUTOR] No clear directional bias. Standing down.")
         return
 
-    if confidence not in ["moderate", "strong"]:
+    # === Confidence-based risk scaling ===
+    if confidence == "strong":
+        scaled_units = 300
+    elif confidence == "moderate":
+        scaled_units = 150
+    else:
         print("[EXECUTOR] Confidence too low to act. Standing down.")
         return
 
     side = "buy" if bias == "bullish" else "sell"
-    units_signed = units if side == "buy" else -units
+    units_signed = scaled_units if side == "buy" else -scaled_units
 
     if shadow:
         print(f"[SHADOW MODE] Would place {side.upper()} MARKET order for {instrument} ({units_signed} units).")
