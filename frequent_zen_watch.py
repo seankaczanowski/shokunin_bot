@@ -14,6 +14,7 @@ import matplotlib
 matplotlib.use("Agg")  # Headless plotting for cloud instances
 import matplotlib.pyplot as plt
 import time
+import csv
 
 # === Load environment variables ===
 load_dotenv()
@@ -33,6 +34,41 @@ client.accountID = ACCOUNT_ID  # Attach for trade execution
 os.makedirs("logs", exist_ok=True)
 os.makedirs("charts", exist_ok=True)
 
+ZEN_LOG_PATH = "logs/zen_log.csv"
+
+def log_unified_entry(instrument, granularity, price, weather, intent):
+    """
+    Appends a unified log entry to zen_log.csv.
+    """
+    header = [
+        "timestamp", "instrument", "granularity", "price",
+        "sky", "cloud", "wind", "freedom", "momentum",
+        "bias", "confidence", "intent_comment"
+    ]
+
+    data = [
+        datetime.now().isoformat(),
+        instrument,
+        granularity,
+        price,
+        weather.get("sky", ""),
+        weather.get("cloud", ""),
+        weather.get("wind", ""),
+        weather.get("freedom", ""),
+        weather.get("momentum", ""),
+        intent.get("bias", ""),
+        intent.get("confidence", ""),
+        intent.get("comment", "").replace("\n", " ")
+    ]
+
+    file_exists = os.path.isfile(ZEN_LOG_PATH)
+
+    with open(ZEN_LOG_PATH, mode="a", newline="") as file:
+        writer = csv.writer(file)
+        if not file_exists:
+            writer.writerow(header)
+        writer.writerow(data)
+
 def print_trade_ticker(instrument, intent, current_price):
     """
     Nicely formatted one-line terminal ticker for trade status.
@@ -50,7 +86,7 @@ def print_trade_ticker(instrument, intent, current_price):
         "low": "🌱"
     }.get(intent["confidence"], "❔")
 
-    print(f"[TICKER] {instrument} | {status_icon} {intent['bias'].upper():8} | {conf_icon} {intent['confidence'].capitalize():9} | Score: {intent.get('score', 'N/A')} | Price: {current_price:.5f}")
+    print(f"[TICKER] {instrument} | {status_icon} {intent['bias'].upper():8} | {conf_icon} {intent['confidence'].capitalize():9} | Price: {current_price:.5f}")
 
 def run_zen_cycle():
     for instrument in INSTRUMENTS:
@@ -78,7 +114,7 @@ def run_zen_cycle():
             print(f"{k.title()}: {v}")
 
         print("\n--- Intent ---")
-        print(f"Bias: {intent['bias'].capitalize()} | Confidence: {intent['confidence'].capitalize()} | Score: {intent.get('score', 'N/A')}")
+        print(f"Bias: {intent['bias'].capitalize()} | Confidence: {intent['confidence'].capitalize()}")
         print(f"Comment: {intent['comment']}")
 
         # === Execute shadow trade with context ===
@@ -91,23 +127,14 @@ def run_zen_cycle():
         # === Check for exits on open shadow trades ===
         evaluate_open_trades(candles, ichimoku, instrument)
 
-        # === Save to log ===
-        log_file = f"logs/log_{instrument}_{GRANULARITY}_{timestamp}.txt"
-        with open(log_file, "w") as f:
-            f.write(f"Timestamp: {timestamp}\n")
-            f.write(f"Instrument: {instrument}\nGranularity: {GRANULARITY}\n\n")
-            f.write("--- Weather Report ---\n")
-            for k, v in weather.items():
-                f.write(f"{k.title()}: {v}\n")
-            f.write("\n--- Intent ---\n")
-            f.write(f"Bias: {intent['bias'].capitalize()}\n")
-            f.write(f"Confidence: {intent['confidence'].capitalize()}\n")
-            f.write(f"Score: {intent.get('score', 'N/A')}\n")
-            f.write(f"Comment: {intent['comment']}\n")
-            f.write("\n--- Shadow Trade ---\n")
-            f.write(f"Simulated Trade: {intent['bias']} ({intent['confidence']}) - {instrument} - 100 units\n")
-
-        print(f"Log saved to: {log_file}")
+        # === Save to unified CSV log ===
+        log_unified_entry(
+            instrument=instrument,
+            granularity=GRANULARITY,
+            price=candles[-1]["close"],
+            weather=weather,
+            intent=intent
+        )
 
 # === Loop every 30 minutes ===
 if __name__ == "__main__":
