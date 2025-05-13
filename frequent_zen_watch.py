@@ -119,7 +119,7 @@ def run_zen_cycle():
 
         # === Execute shadow trade with context ===
         print("\n--- Shadow Trade ---")
-        execute_trade(intent, instrument, client, units=100, shadow=True, current_candle=candles[-1], candle_index=len(candles) - 1)
+        execute_trade(intent, instrument, client, shadow=True, current_candle=candles[-1], candle_index=len(candles) - 1)
 
         # === Print terminal ticker ===
         print_trade_ticker(instrument, intent, current_price=candles[-1]['close'])
