@@ -1,5 +1,5 @@
 # frequent_zen_watch.py
-# Observes multiple pairs every 30 minutes in shadow mode with Ichimoku entry and trailing exit logic
+# Observes multiple pairs every 15 minutes in shadow mode with Ichimoku entry and trailing exit logic
 
 import os
 from dotenv import load_dotenv
@@ -22,8 +22,8 @@ ACCOUNT_ID = os.getenv("OANDA_ACCOUNT_ID")
 ACCESS_TOKEN = os.getenv("OANDA_ACCESS_TOKEN")
 
 # === Configuration ===
-INSTRUMENTS = ["USD_JPY", "EUR_USD"]
-GRANULARITY = "M30"
+INSTRUMENTS = ["USD_JPY", "EUR_USD", "USD_CAD"]
+GRANULARITY = "M15"
 CANDLE_COUNT = 60  # Reduced to minimize memory footprint on micro instances
 
 # === Connect to OANDA ===
@@ -136,9 +136,9 @@ def run_zen_cycle():
             intent=intent
         )
 
-# === Loop every 30 minutes ===
+# === Loop every 15 minutes ===
 if __name__ == "__main__":
     while True:
         run_zen_cycle()
-        print("\n[ALL DONE] Zen scan complete for all instruments. Sleeping 30 minutes...\n")
-        time.sleep(1800)  # 30 minutes
+        print("\n[ALL DONE] Zen scan complete for all instruments. Sleeping 15 minutes...\n")
+        time.sleep(900)  # 15 minutes
