@@ -80,7 +80,9 @@ def print_trade_ticker(instrument, intent, current_price):
         "low": "🌱"
     }.get(intent["confidence"], "❔")
 
-    print(f"[TICKER] {instrument} | {status_icon} {intent['bias'].upper():8} | {conf_icon} {intent['confidence'].capitalize():9} | Price: {current_price:.5f}")
+    session_tag = f"[{intent.get('session', 'Unknown')}]"
+
+    print(f"[TICKER] {instrument} | {status_icon} {intent['bias'].upper():8} | {conf_icon} {intent['confidence'].capitalize():9} | Price: {current_price:.5f} {session_tag}")
 
 def run_zen_cycle():
     for instrument in INSTRUMENTS:
