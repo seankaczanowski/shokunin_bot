@@ -1,5 +1,5 @@
 # trade_executor.py
-# Executes and tracks trades — shadow or real — with Ichimoku-based exit logic and dynamic position sizing
+# Executes and tracks trades — shadow or real — with Ichimoku-based and dynamic trailing exit logic
 
 import oandapyV20.endpoints.orders as orders
 import oandapyV20.endpoints.accounts as accounts
@@ -7,14 +7,10 @@ import os
 from datetime import datetime
 import csv
 
-# === Simple in-memory tracker ===
-open_trades = []  # Each trade: dict with instrument, direction, entry_price, entry_index
+open_trades = []  # Each trade: dict with instrument, direction, entry_price, trail info, etc.
 TRADE_LOG_PATH = "logs/shadow_trades.csv"
 
 def log_shadow_trade(trade):
-    """
-    Append a shadow trade to CSV log.
-    """
     header = ["timestamp", "instrument", "direction", "entry_price", "entry_index", "units"]
     data = [
         datetime.now().isoformat(),
@@ -26,7 +22,6 @@ def log_shadow_trade(trade):
     ]
 
     file_exists = os.path.isfile(TRADE_LOG_PATH)
-
     with open(TRADE_LOG_PATH, mode="a", newline="") as file:
         writer = csv.writer(file)
         if not file_exists:
@@ -34,62 +29,54 @@ def log_shadow_trade(trade):
         writer.writerow(data)
 
 def get_account_balance(client):
-    """
-    Fetch the current account balance from OANDA.
-    """
     r = accounts.AccountDetails(accountID=client.accountID)
     client.request(r)
-    balance = float(r.response['account']['balance'])
-    return balance
+    return float(r.response['account']['balance'])
 
 def calculate_dynamic_units(balance, instrument, risk_pct=0.01, est_stop_loss_pips=20):
-    """
-    Calculate position size based on account balance and risk.
-    """
-    risk_amount = balance * risk_pct  # e.g., 1% of $200 = $2
-    pip_value_per_1000 = 0.10  # Approximate for most pairs
+    risk_amount = balance * risk_pct
+    pip_value_per_1000 = 0.10
     unit_blocks = risk_amount / (pip_value_per_1000 * est_stop_loss_pips)
-    return int(unit_blocks * 1000)  # round down to nearest whole number of units
+    return int(unit_blocks * 1000)
+
+def compute_trailing_distance(candles, lookback=14, multiplier=1.5):
+    highs = [c['high'] for c in candles[-lookback:]]
+    lows = [c['low'] for c in candles[-lookback:]]
+    ranges = [h - l for h, l in zip(highs, lows)]
+    avg_range = sum(ranges) / len(ranges)
+    return avg_range * multiplier
 
 def execute_trade(intent, instrument, client, shadow=True, current_candle=None, candle_index=None):
-    """
-    Place or simulate a market order based on intent.
-    Store shadow trades in memory.
-    """
     bias = intent.get("bias")
     confidence = intent.get("confidence")
 
-    if bias not in ["bullish", "bearish"]:
-        print("[EXECUTOR] No clear directional bias. Standing down.")
+    if bias not in ["bullish", "bearish"] or confidence not in ["moderate", "strong"]:
+        print("[EXECUTOR] Bias unclear or confidence too low. Standing down.")
         return
 
-    if confidence not in ["moderate", "strong"]:
-        print("[EXECUTOR] Confidence too low to act. Standing down.")
-        return
-
-    # === Fetch balance + calculate position size dynamically ===
     balance = get_account_balance(client)
     units = calculate_dynamic_units(balance, instrument)
-
     side = "buy" if bias == "bullish" else "sell"
     units_signed = units if side == "buy" else -units
 
     if shadow:
         print(f"[SHADOW MODE] Would place {side.upper()} MARKET order for {instrument} ({units_signed} units).")
         print(f"[SHADOW MODE] Intent: {intent['comment']}")
-
-        if current_candle is not None:
+        if current_candle:
+            trail_dist = compute_trailing_distance([current_candle])
             open_trades.append({
                 "instrument": instrument,
                 "direction": bias,
                 "entry_price": current_candle['close'],
                 "entry_index": candle_index,
-                "units": units
+                "units": units,
+                "trail_distance": trail_dist,
+                "trail_armed": False,
+                "max_favorable_price": current_candle['close']
             })
             log_shadow_trade(open_trades[-1])
         return
 
-    # === REAL ORDER ===
     order_data = {
         "order": {
             "instrument": instrument,
@@ -108,21 +95,15 @@ def execute_trade(intent, instrument, client, shadow=True, current_candle=None, 
         print("[EXECUTOR] Order failed.")
         print(e)
 
-def should_exit_trade(trade, candles, ichimoku_lines):
-    """
-    Decide if we should exit a trade based on Ichimoku exit signals.
-    """
+def fallback_ichimoku_exit(trade, candles, ichimoku_lines):
     idx = len(candles) - 1
     price = candles[idx]['close']
-
     tenkan = ichimoku_lines['tenkan_sen'][idx]
     kijun = ichimoku_lines['kijun_sen'][idx]
     chikou_data = ichimoku_lines['chikou_span']
 
-    # Reversal signals
     tenkan_cross = tenkan < kijun if trade['direction'] == "bullish" else tenkan > kijun
 
-    # Price inside cloud check
     span_a = {i: v for (i, v) in ichimoku_lines['senkou_span_a']}.get(idx)
     span_b = {i: v for (i, v) in ichimoku_lines['senkou_span_b']}.get(idx)
     in_kumo = False
@@ -131,7 +112,6 @@ def should_exit_trade(trade, candles, ichimoku_lines):
         lower = min(span_a, span_b)
         in_kumo = lower <= price <= upper
 
-    # Chikou failure
     if idx >= 26:
         chikou = chikou_data[idx - 26]
         if chikou and isinstance(chikou, tuple):
@@ -144,15 +124,35 @@ def should_exit_trade(trade, candles, ichimoku_lines):
             if trade['direction'] == "bearish" and chikou_price > high:
                 return True
 
-    if tenkan_cross or in_kumo:
-        return True
+    return tenkan_cross or in_kumo
 
-    return False
+def should_exit_trade(trade, candles, ichimoku_lines):
+    idx = len(candles) - 1
+    price = candles[idx]['close']
+
+    if 'trail_distance' in trade:
+        if trade['direction'] == "bullish":
+            trade['max_favorable_price'] = max(price, trade['max_favorable_price'])
+        else:
+            trade['max_favorable_price'] = min(price, trade['max_favorable_price'])
+
+        if not trade['trail_armed']:
+            moved = abs(trade['max_favorable_price'] - trade['entry_price'])
+            if moved >= trade['trail_distance']:
+                trade['trail_armed'] = True
+                print(f"[TRAIL] Armed trailing stop for {trade['instrument']}")
+
+        if trade['trail_armed']:
+            if trade['direction'] == "bullish" and price <= (trade['max_favorable_price'] - trade['trail_distance']):
+                print("[TRAIL EXIT] Bullish trade hit trailing stop.")
+                return True
+            if trade['direction'] == "bearish" and price >= (trade['max_favorable_price'] + trade['trail_distance']):
+                print("[TRAIL EXIT] Bearish trade hit trailing stop.")
+                return True
+
+    return fallback_ichimoku_exit(trade, candles, ichimoku_lines)
 
 def evaluate_open_trades(candles, ichimoku_lines, instrument):
-    """
-    Go through open shadow trades and check for exits.
-    """
     global open_trades
     idx = len(candles) - 1
     remaining_trades = []
@@ -176,7 +176,6 @@ def evaluate_open_trades(candles, ichimoku_lines, instrument):
                 f.write(f"Entry Price: {trade['entry_price']}\n")
                 f.write(f"Exit Price: {exit_price}\n")
                 f.write(f"P/L: {pnl_pips} pips\n")
-
         else:
             remaining_trades.append(trade)
 
