@@ -2,19 +2,20 @@
 # Observes multiple pairs every 15 minutes in shadow mode with Ichimoku entry and trailing exit logic
 
 import os
-from dotenv import load_dotenv
-import oandapyV20
+import time
+import csv
 from datetime import datetime
+from dotenv import load_dotenv
+
+import oandapyV20
+import matplotlib
+matplotlib.use("Agg")  # Headless plotting for cloud instances
+import matplotlib.pyplot as plt
+
 from zen_garden import fetch_candles, compute_ichimoku, plot_ichimoku
 from weather_report import assess_weather
 from intent_engine import interpret_weather
 from trade_executor import execute_trade, evaluate_open_trades
-
-import matplotlib
-matplotlib.use("Agg")  # Headless plotting for cloud instances
-import matplotlib.pyplot as plt
-import time
-import csv
 
 # === Load environment variables ===
 load_dotenv()
@@ -24,11 +25,11 @@ ACCESS_TOKEN = os.getenv("OANDA_ACCESS_TOKEN")
 # === Configuration ===
 INSTRUMENTS = ["USD_JPY", "EUR_USD", "USD_CAD"]
 GRANULARITY = "M15"
-CANDLE_COUNT = 60  # Reduced to minimize memory footprint on micro instances
+CANDLE_COUNT = 60
 
-# === Connect to OANDA ===
-client = oandapyV20.API(access_token=ACCESS_TOKEN, environment="live")  # Set correct OANDA environment
-client.accountID = ACCOUNT_ID  # Attach for trade execution
+# === Initialize API client ===
+client = oandapyV20.API(access_token=ACCESS_TOKEN, environment="live")
+client.accountID = ACCOUNT_ID
 
 # === Create output folders ===
 os.makedirs("logs", exist_ok=True)
@@ -37,9 +38,6 @@ os.makedirs("charts", exist_ok=True)
 ZEN_LOG_PATH = "logs/zen_log.csv"
 
 def log_unified_entry(instrument, granularity, price, weather, intent):
-    """
-    Appends a unified log entry to zen_log.csv.
-    """
     header = [
         "timestamp", "instrument", "granularity", "price",
         "sky", "cloud", "wind", "freedom", "momentum",
@@ -62,17 +60,13 @@ def log_unified_entry(instrument, granularity, price, weather, intent):
     ]
 
     file_exists = os.path.isfile(ZEN_LOG_PATH)
-
-    with open(ZEN_LOG_PATH, mode="a", newline="") as file:
-        writer = csv.writer(file)
+    with open(ZEN_LOG_PATH, mode="a", newline="") as f:
+        writer = csv.writer(f)
         if not file_exists:
             writer.writerow(header)
         writer.writerow(data)
 
 def print_trade_ticker(instrument, intent, current_price):
-    """
-    Nicely formatted one-line terminal ticker for trade status.
-    """
     status_icon = {
         "bullish": "📈",
         "bearish": "📉",
@@ -92,11 +86,11 @@ def run_zen_cycle():
     for instrument in INSTRUMENTS:
         print(f"\n=== Observing {instrument} ===")
 
-        # === Fetch and process data ===
+        # === Fetch + Compute ===
         candles = fetch_candles(client, instrument, granularity=GRANULARITY, count=CANDLE_COUNT)
         ichimoku = compute_ichimoku(candles)
 
-        # === Save sketch only, do not open ===
+        # === Save sketch ===
         timestamp = datetime.now().strftime("%Y%m%d_%H%M")
         sketch_file = f"charts/sketch_{instrument}_{GRANULARITY}_{timestamp}.png"
         plt.ioff()
@@ -105,7 +99,7 @@ def run_zen_cycle():
         plt.close()
         print(f"Sketch saved to: {sketch_file}")
 
-        # === Weather + Intent ===
+        # === Weather & Intent ===
         weather = assess_weather(candles, ichimoku)
         intent = interpret_weather(weather)
 
@@ -117,28 +111,18 @@ def run_zen_cycle():
         print(f"Bias: {intent['bias'].capitalize()} | Confidence: {intent['confidence'].capitalize()}")
         print(f"Comment: {intent['comment']}")
 
-        # === Execute shadow trade with context ===
+        # === Shadow Trade + Exit Check ===
         print("\n--- Shadow Trade ---")
         execute_trade(intent, instrument, client, shadow=True, current_candle=candles[-1], candle_index=len(candles) - 1)
-
-        # === Print terminal ticker ===
-        print_trade_ticker(instrument, intent, current_price=candles[-1]['close'])
-
-        # === Check for exits on open shadow trades ===
+        print_trade_ticker(instrument, intent, candles[-1]['close'])
         evaluate_open_trades(candles, ichimoku, instrument)
 
-        # === Save to unified CSV log ===
-        log_unified_entry(
-            instrument=instrument,
-            granularity=GRANULARITY,
-            price=candles[-1]["close"],
-            weather=weather,
-            intent=intent
-        )
+        # === Unified CSV Log ===
+        log_unified_entry(instrument, GRANULARITY, candles[-1]['close'], weather, intent)
 
 # === Loop every 15 minutes ===
 if __name__ == "__main__":
     while True:
         run_zen_cycle()
         print("\n[ALL DONE] Zen scan complete for all instruments. Sleeping 15 minutes...\n")
-        time.sleep(900)  # 15 minutes
+        time.sleep(900)
