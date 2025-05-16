@@ -94,7 +94,6 @@ def run_zen_cycle():
                 print(f"[SKIP] Not enough Ichimoku span data for {instrument}. Waiting for more candles.")
                 continue
 
-            # Safely extract span values
             cloud_top = ichimoku["senkou_span_a"][-1][1]
             cloud_bottom = ichimoku["senkou_span_b"][-1][1]
 
