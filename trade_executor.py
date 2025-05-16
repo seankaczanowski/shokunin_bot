@@ -47,26 +47,26 @@ def compute_trailing_distance(candles, lookback=14, multiplier=1.5):
     return avg_range * multiplier
 
 def execute_trade(intent, instrument, client, shadow=True, current_candle=None, candle_index=None):
-    bias = intent.get("bias")
+    intent_type = intent.get("type")
     confidence = intent.get("confidence")
 
-    if bias not in ["bullish", "bearish"] or confidence not in ["moderate", "strong"]:
-        print("[EXECUTOR] Bias unclear or confidence too low. Standing down.")
+    if intent_type not in ["bullish_bias", "bearish_bias"] or not intent.get("should_trade", False):
+        print("[EXECUTOR] Intent unclear or confidence too low. Standing down.")
         return
 
     balance = get_account_balance(client)
     units = calculate_dynamic_units(balance, instrument)
-    side = "buy" if bias == "bullish" else "sell"
+    side = "buy" if intent_type == "bullish_bias" else "sell"
     units_signed = units if side == "buy" else -units
 
     if shadow:
         print(f"[SHADOW MODE] Would place {side.upper()} MARKET order for {instrument} ({units_signed} units).")
-        print(f"[SHADOW MODE] Intent: {intent['comment']}")
+        print(f"[SHADOW MODE] Mood: {intent['mood']} | Confidence: {intent['confidence']}")
         if current_candle:
             trail_dist = compute_trailing_distance([current_candle])
             open_trades.append({
                 "instrument": instrument,
-                "direction": bias,
+                "direction": "bullish" if side == "buy" else "bearish",
                 "entry_price": current_candle['close'],
                 "entry_index": candle_index,
                 "units": units,

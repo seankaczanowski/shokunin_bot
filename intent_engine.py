@@ -1,92 +1,86 @@
+# intent_engine.py
+
+from mood_reader import market_mood
 from seasonal_wisdom import get_market_session
 
-def evaluate_ichimoku_flow(weather, session_context):
-    flow_state = {}
-    score = 0
-    comment_parts = []
+def get_intent(candles, cloud_top, cloud_bottom, now_utc=None):
+    """
+    Determines market intent based on Ichimoku placement, mood, and seasonal session context.
 
-    sky = weather.get("sky", "")
-    wind = weather.get("wind", "")
-    cloud = weather.get("cloud", "")
-    freedom = weather.get("freedom", "")
-    momentum = weather.get("momentum", "")
+    candles: List of recent candle dicts (open, high, low, close)
+    cloud_top: float - top of the Ichimoku cloud
+    cloud_bottom: float - bottom of the Ichimoku cloud
+    now_utc: optional datetime for session detection (default: current UTC time)
 
-    if sky == "Clear skies":
-        score += 1
-        comment_parts.append("Clear skies signal upward openness.")
-    elif sky == "Stormy":
-        score -= 1
-        comment_parts.append("Storm clouds dim the outlook.")
+    Returns a dictionary with enriched intent and session metadata.
+    """
 
-    if wind == "Favorable tailwinds":
-        score += 1
-        comment_parts.append("Tailwinds support bullish action.")
-    elif wind == "Unfavorable headwinds":
-        score -= 1
-        comment_parts.append("Headwinds push against progress.")
+    # === Market Session Awareness ===
+    session_data = get_market_session(now_utc)
+    session_name = session_data.get("session", "Unknown")
+    session_mood = session_data.get("mood", "")
+    session_notes = session_data.get("notes", "")
 
-    if momentum == "Quick favorable winds":
-        score += 1
-        comment_parts.append("Momentum is swift and strong.")
-    elif momentum == "Slack and sluggish sails":
-        score -= 1
-        comment_parts.append("Momentum is weak and uncertain.")
+    # === Mood Analysis ===
+    mood_report = market_mood(candles, cloud_top, cloud_bottom)
 
-    if freedom == "Path is clear above":
-        score += 1
-        comment_parts.append("Open sky for bullish movement.")
-    elif freedom == "Path is clear below":
-        score -= 1
-        comment_parts.append("Bearish air is unblocked.")
+    mood = mood_report["mood"]
+    recent_tk_cross = mood_report["recent_tk_cross"]
+    cloud_breakout = mood_report["cloud_breakout"]
+    entered_cloud = mood_report["entered_cloud"]
+    prior_mood = mood_report["prior_mood"]
 
-    if cloud == "Thick and stable cloud":
-        comment_parts.append("Thick cloud can act as support or resistance.")
+    latest_close = candles[-1]["close"]
 
-    if score >= 3:
-        bias = "bullish"
-        confidence = "strong"
-    elif score == 2:
-        bias = "bullish"
-        confidence = "moderate"
-    elif score == 1:
-        bias = "bullish"
-        confidence = "low"
-    elif score == 0:
-        bias = "neutral"
-        confidence = "low"
-    elif score == -1:
-        bias = "bearish"
-        confidence = "low"
-    elif score == -2:
-        bias = "bearish"
-        confidence = "moderate"
+    # === Basic Position-Based Intent ===
+    if latest_close > cloud_top:
+        raw_intent = "bullish_bias"
+    elif latest_close < cloud_bottom:
+        raw_intent = "bearish_bias"
     else:
-        bias = "bearish"
-        confidence = "strong"
+        raw_intent = "neutral"
 
-    if session_context["session"] in ["Weekend", "Holiday", "Friday Close"]:
-        return {
-            "bias": "avoid",
-            "confidence": "low",
-            "comment": f"{session_context['notes']} Avoid trading during {session_context['session']}.",
-            "score": score,
-            "session": session_context["session"],
-            "session_mood": session_context["mood"],
-            "volatility": session_context["volatility"],
-            "session_notes": session_context["notes"]
-        }
+    # === Confidence Logic ===
+    confidence = 0.5  # base confidence
+
+    if mood in ["soaring", "plunging"]:
+        confidence += 0.25
+    elif mood in ["climbing from valley", "slipping from heights"]:
+        confidence += 0.1
+    elif mood == "foggy":
+        confidence = 0.0
+    elif mood == "wandering":
+        confidence -= 0.05
+
+    # Session adjustments
+    if session_name == "Weekend":
+        confidence = 0.0
+    elif session_name == "Holiday":
+        confidence *= 0.5
+    elif session_name == "Friday Close":
+        confidence *= 0.7
+
+    # Signal boosts
+    if recent_tk_cross:
+        confidence += 0.05
+    if cloud_breakout:
+        confidence += 0.05
+
+    confidence = min(1.0, max(0.0, confidence))  # clamp to [0, 1]
+    should_trade = confidence >= 0.6
 
     return {
-        "bias": bias,
+        "type": raw_intent,
         "confidence": confidence,
-        "comment": " ".join(comment_parts) + f" Session: {session_context['session']} ({session_context['mood']})",
-        "score": score,
-        "session": session_context["session"],
-        "session_mood": session_context["mood"],
-        "volatility": session_context["volatility"],
-        "session_notes": session_context["notes"]
+        "should_trade": should_trade,
+        "mood": mood,
+        "session": session_name,
+        "session_mood": session_mood,
+        "session_notes": session_notes,
+        "mood_context": {
+            "recent_tk_cross": recent_tk_cross,
+            "cloud_breakout": cloud_breakout,
+            "entered_cloud": entered_cloud,
+            "prior_mood": prior_mood
+        }
     }
-
-def interpret_weather(weather):
-    session_context = get_market_session()
-    return evaluate_ichimoku_flow(weather, session_context)
