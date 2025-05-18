@@ -1,0 +1,19 @@
+timestamp,instrument,granularity,price,sky,cloud,wind,freedom,momentum,bias,confidence,intent_comment
+2025-05-14T08:08:29.691039,USD_JPY,M15,146.314,Unknown (insufficient cloud),Unknown thickness,Unfavorable headwinds,Path is tangled in the forest,Quick favorable winds,neutral,low,Signals are mixed or indecisive. Stay observant.
+2025-05-14T08:08:30.265820,EUR_USD,M15,1.1212,Unknown (insufficient cloud),Unknown thickness,Favorable tailwinds,Path is tangled in the forest,Slack and sluggish sails,neutral,low,Signals are mixed or indecisive. Stay observant.
+2025-05-14T08:08:30.750160,USD_CAD,M15,1.39585,Unknown (insufficient cloud),Unknown thickness,Unfavorable headwinds,Path is tangled in the forest,Quick favorable winds,neutral,low,Signals are mixed or indecisive. Stay observant.
+2025-05-15T15:24:35.102897,USD_JPY,M15,145.568,Unknown (insufficient cloud),Unknown thickness,Unfavorable headwinds,Path is tangled in the forest,Slack and sluggish sails,bearish,moderate,Headwinds push against progress. Momentum is weak and uncertain. Session: Off-hours (Quiet and still)
+2025-05-15T15:24:35.518803,EUR_USD,M15,1.11874,Unknown (insufficient cloud),Unknown thickness,Unfavorable headwinds,Path is tangled in the forest,Quick favorable winds,neutral,low,Headwinds push against progress. Momentum is swift and strong. Session: Off-hours (Quiet and still)
+2025-05-15T15:24:35.960489,USD_CAD,M15,1.39594,Unknown (insufficient cloud),Unknown thickness,Favorable tailwinds,Path is tangled in the forest,Slack and sluggish sails,neutral,low,Tailwinds support bullish action. Momentum is weak and uncertain. Session: Off-hours (Quiet and still)
+2025-05-15T15:44:37.524166,USD_JPY,M15,145.618,Unknown (insufficient cloud),Unknown thickness,Unfavorable headwinds,Path is tangled in the forest,Slack and sluggish sails,bearish,moderate,Headwinds push against progress. Momentum is weak and uncertain. Session: Off-hours (Quiet and still)
+2025-05-15T15:44:37.972643,EUR_USD,M15,1.11873,Unknown (insufficient cloud),Unknown thickness,Unfavorable headwinds,Path is tangled in the forest,Quick favorable winds,neutral,low,Headwinds push against progress. Momentum is swift and strong. Session: Off-hours (Quiet and still)
+2025-05-15T15:44:38.481075,USD_CAD,M15,1.39604,Unknown (insufficient cloud),Unknown thickness,Unfavorable headwinds,Path is tangled in the forest,Slack and sluggish sails,bearish,moderate,Headwinds push against progress. Momentum is weak and uncertain. Session: Off-hours (Quiet and still)
+2025-05-16T08:48:05.039280,USD_JPY,M15,145.962,bullish_bias,0.65,slipping from heights,True,True,,,soaring
+2025-05-16T08:48:05.758031,EUR_USD,M15,1.11472,bearish_bias,0.65,climbing from valley,True,True,,,plunging
+2025-05-16T08:48:06.476702,USD_CAD,M15,1.39856,bullish_bias,0.8,soaring,True,True,,,soaring
+2025-05-16T16:45:35.644198,USD_JPY,M15,145.64,bullish_bias,0.47,slipping from heights,False,True,,,soaring
+2025-05-16T16:45:36.105068,EUR_USD,M15,1.11654,bearish_bias,0.47,climbing from valley,False,True,,,plunging
+2025-05-16T16:45:36.596435,USD_CAD,M15,1.39684,bullish_bias,0.47,slipping from heights,False,True,,,slipping from heights
+2025-05-17T17:05:42.267279,USD_JPY,M15,145.64,bullish_bias,0.05,slipping from heights,False,True,,,soaring
+2025-05-17T17:05:42.723509,EUR_USD,M15,1.11654,bearish_bias,0.05,climbing from valley,False,True,,,plunging
+2025-05-17T17:05:43.215616,USD_CAD,M15,1.39684,bullish_bias,0.05,slipping from heights,False,True,,,slipping from heights

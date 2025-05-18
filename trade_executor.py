@@ -6,19 +6,30 @@ import oandapyV20.endpoints.accounts as accounts
 import os
 from datetime import datetime
 import csv
+from intent_engine import get_intent  # For real-time mood reevaluation
 
 open_trades = []  # Each trade: dict with instrument, direction, entry_price, trail info, etc.
 TRADE_LOG_PATH = "logs/shadow_trades.csv"
 
+
 def log_shadow_trade(trade):
-    header = ["timestamp", "instrument", "direction", "entry_price", "entry_index", "units"]
+    header = [
+        "timestamp", "instrument", "direction", "entry_price", "entry_index", "units",
+        "entry_mood", "entry_confidence", "exit_price", "pnl_pips", "exit_time", "exit_reason"
+    ]
     data = [
         datetime.now().isoformat(),
         trade["instrument"],
         trade["direction"],
         trade["entry_price"],
         trade["entry_index"],
-        trade["units"]
+        trade["units"],
+        trade.get("entry_mood", ""),
+        trade.get("entry_confidence", ""),
+        trade.get("exit_price", ""),
+        trade.get("pnl_pips", ""),
+        trade.get("exit_time", ""),
+        trade.get("exit_reason", "")
     ]
 
     file_exists = os.path.isfile(TRADE_LOG_PATH)
@@ -28,10 +39,37 @@ def log_shadow_trade(trade):
             writer.writerow(header)
         writer.writerow(data)
 
+
+def update_shadow_trade_exit(trade):
+    if not os.path.exists(TRADE_LOG_PATH):
+        return
+
+    updated_rows = []
+    match_key = (trade["instrument"], trade["entry_price"], trade["entry_index"])
+
+    with open(TRADE_LOG_PATH, mode="r", newline="") as file:
+        reader = csv.reader(file)
+        headers = next(reader)
+        for row in reader:
+            key = (row[1], float(row[3]), int(row[4]))
+            if key == match_key:
+                row[8] = str(trade["exit_price"])
+                row[9] = str(trade["pnl_pips"])
+                row[10] = trade["exit_time"]
+                row[11] = trade["exit_reason"]
+            updated_rows.append(row)
+
+    with open(TRADE_LOG_PATH, mode="w", newline="") as file:
+        writer = csv.writer(file)
+        writer.writerow(headers)
+        writer.writerows(updated_rows)
+
+
 def get_account_balance(client):
     r = accounts.AccountDetails(accountID=client.accountID)
     client.request(r)
     return float(r.response['account']['balance'])
+
 
 def calculate_dynamic_units(balance, instrument, risk_pct=0.01, est_stop_loss_pips=20):
     risk_amount = balance * risk_pct
@@ -39,12 +77,14 @@ def calculate_dynamic_units(balance, instrument, risk_pct=0.01, est_stop_loss_pi
     unit_blocks = risk_amount / (pip_value_per_1000 * est_stop_loss_pips)
     return int(unit_blocks * 1000)
 
+
 def compute_trailing_distance(candles, lookback=14, multiplier=1.5):
     highs = [c['high'] for c in candles[-lookback:]]
     lows = [c['low'] for c in candles[-lookback:]]
     ranges = [h - l for h, l in zip(highs, lows)]
     avg_range = sum(ranges) / len(ranges)
     return avg_range * multiplier
+
 
 def execute_trade(intent, instrument, client, shadow=True, current_candle=None, candle_index=None):
     intent_type = intent.get("type")
@@ -72,7 +112,10 @@ def execute_trade(intent, instrument, client, shadow=True, current_candle=None, 
                 "units": units,
                 "trail_distance": trail_dist,
                 "trail_armed": False,
-                "max_favorable_price": current_candle['close']
+                "max_favorable_price": current_candle['close'],
+                "entry_mood": intent['mood'],
+                "entry_confidence": intent['confidence'],
+                "mood_strikes": 0
             })
             log_shadow_trade(open_trades[-1])
         return
@@ -94,6 +137,7 @@ def execute_trade(intent, instrument, client, shadow=True, current_candle=None, 
     except Exception as e:
         print("[EXECUTOR] Order failed.")
         print(e)
+
 
 def fallback_ichimoku_exit(trade, candles, ichimoku_lines):
     idx = len(candles) - 1
@@ -126,9 +170,31 @@ def fallback_ichimoku_exit(trade, candles, ichimoku_lines):
 
     return tenkan_cross or in_kumo
 
+
+def mood_conflict(entry_mood, entry_confidence, current_mood, trade_direction):
+    strong_conflict = ((trade_direction == "bullish" and current_mood in ["plunging", "strong pessimism"])
+                       or (trade_direction == "bearish" and current_mood in ["soaring", "strong optimism"]))
+    return strong_conflict and current_mood != entry_mood
+
+
 def should_exit_trade(trade, candles, ichimoku_lines):
     idx = len(candles) - 1
     price = candles[idx]['close']
+    trade['exit_reason'] = ""
+
+    try:
+        intent_now = get_intent(candles, ichimoku_lines['senkou_span_a'][idx][1], ichimoku_lines['senkou_span_b'][idx][1])
+        if mood_conflict(trade['entry_mood'], trade['entry_confidence'], intent_now['mood'], trade['direction']):
+            trade['mood_strikes'] += 1
+            print(f"[MOOD SHIFT] Warning {trade['mood_strikes']} — New mood: {intent_now['mood']}")
+            if trade['mood_strikes'] >= 2:
+                print("[MOOD EXIT] Exiting due to confirmed adverse mood shift.")
+                trade['exit_reason'] = "Mood Shift"
+                return True
+        else:
+            trade['mood_strikes'] = 0
+    except Exception as e:
+        print(f"[MOOD CHECK ERROR] {e}")
 
     if 'trail_distance' in trade:
         if trade['direction'] == "bullish":
@@ -145,12 +211,19 @@ def should_exit_trade(trade, candles, ichimoku_lines):
         if trade['trail_armed']:
             if trade['direction'] == "bullish" and price <= (trade['max_favorable_price'] - trade['trail_distance']):
                 print("[TRAIL EXIT] Bullish trade hit trailing stop.")
+                trade['exit_reason'] = "Trailing Stop"
                 return True
             if trade['direction'] == "bearish" and price >= (trade['max_favorable_price'] + trade['trail_distance']):
                 print("[TRAIL EXIT] Bearish trade hit trailing stop.")
+                trade['exit_reason'] = "Trailing Stop"
                 return True
 
-    return fallback_ichimoku_exit(trade, candles, ichimoku_lines)
+    if fallback_ichimoku_exit(trade, candles, ichimoku_lines):
+        trade['exit_reason'] = "Ichimoku Exit"
+        return True
+
+    return False
+
 
 def evaluate_open_trades(candles, ichimoku_lines, instrument):
     global open_trades
@@ -168,14 +241,12 @@ def evaluate_open_trades(candles, ichimoku_lines, instrument):
             pnl_pips = round(pnl * 10000, 1)
             print(f"[SHADOW EXIT] {instrument} | {trade['direction'].upper()} exit | P/L: {pnl_pips} pips")
 
-            timestamp = datetime.now().strftime("%Y%m%d_%H%M")
-            log_path = f"logs/exit_{instrument}_{timestamp}.txt"
-            with open(log_path, "w") as f:
-                f.write(f"Instrument: {instrument}\n")
-                f.write(f"Direction: {trade['direction']}\n")
-                f.write(f"Entry Price: {trade['entry_price']}\n")
-                f.write(f"Exit Price: {exit_price}\n")
-                f.write(f"P/L: {pnl_pips} pips\n")
+            trade['exit_price'] = exit_price
+            trade['pnl_pips'] = pnl_pips
+            trade['exit_time'] = datetime.now().isoformat()
+
+            update_shadow_trade_exit(trade)
+
         else:
             remaining_trades.append(trade)
 
