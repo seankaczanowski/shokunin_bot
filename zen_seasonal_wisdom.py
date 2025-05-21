@@ -1,4 +1,4 @@
-# seasonal_wisdom.py
+# zen_seasonal_wisdom.py
 # Time-of-day market session awareness with weekend and holiday awareness
 
 from datetime import datetime, time

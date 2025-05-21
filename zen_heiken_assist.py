@@ -1,5 +1,5 @@
 
-# heiken_assist.py
+# zen_heiken_assist.py
 
 import pandas as pd
 

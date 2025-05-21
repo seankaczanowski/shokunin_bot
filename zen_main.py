@@ -1,4 +1,4 @@
-# frequent_zen_watch.py
+# zen_main.py
 # Observes multiple pairs every 15 minutes with Ichimoku mood-driven logic
 
 import os
@@ -12,9 +12,9 @@ import matplotlib
 matplotlib.use("Agg")  # Headless plotting for cloud instances
 import matplotlib.pyplot as plt
 
-from zen_garden import fetch_candles, compute_ichimoku, plot_ichimoku
-from intent_engine import get_intent
-from trade_executor import execute_trade, evaluate_open_trades
+from zen_ichimoku_weather import fetch_candles, compute_ichimoku, plot_ichimoku
+from zen_intent_engine import get_intent
+from zen_trade_executor import execute_trade, evaluate_open_trades
 
 # === Load environment variables ===
 load_dotenv()

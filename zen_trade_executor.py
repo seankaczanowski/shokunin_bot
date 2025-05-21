@@ -1,4 +1,4 @@
-# trade_executor.py
+# zen_trade_executor.py
 # Executes and tracks trades — shadow or real — with Ichimoku-based and dynamic trailing exit logic
 
 import oandapyV20.endpoints.orders as orders
@@ -6,7 +6,7 @@ import oandapyV20.endpoints.accounts as accounts
 import os
 from datetime import datetime
 import csv
-from intent_engine import get_intent  # For real-time mood reevaluation
+from zen_intent_engine import get_intent  # For real-time mood reevaluation
 
 open_trades = []  # Each trade: dict with instrument, direction, entry_price, trail info, etc.
 TRADE_LOG_PATH = "logs/shadow_trades.csv"

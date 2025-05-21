@@ -1,4 +1,4 @@
-# mood_reader.py
+# zen_mood_reader.py
 
 def market_mood(candles, cloud_top, cloud_bottom):
     """

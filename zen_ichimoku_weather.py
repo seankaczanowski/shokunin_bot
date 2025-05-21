@@ -1,4 +1,4 @@
-# zen_garden.py
+# zen_ichimoku_weather.py
 # Building the garden for our Zen trader
 
 import matplotlib

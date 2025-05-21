@@ -1,11 +1,11 @@
-# strategy_simulator.py
+# zen_simulator.py
 # Full trade simulation engine now mirrors live bot logic, including dynamic trailing, Ichimoku, and mood-based exits
 
 import pandas as pd
-from intent_engine import get_intent
-from zen_garden import compute_ichimoku
-from heiken_assist import compute_heiken_ashi, ha_trend_strength
-from mood_reader import market_mood
+from zen_intent_engine import get_intent
+from zen_ichimoku_weather import compute_ichimoku
+from zen_heiken_assist import compute_heiken_ashi, ha_trend_strength
+from zen_mood_reader import market_mood
 
 
 def load_data_from_csv(csv_path):

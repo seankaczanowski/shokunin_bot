@@ -1,7 +1,7 @@
-# intent_engine.py
+# zen_intent_engine.py
 
-from mood_reader import market_mood
-from seasonal_wisdom import get_market_session
+from zen_mood_reader import market_mood
+from zen_seasonal_wisdom import get_market_session
 
 def get_intent(candles, cloud_top, cloud_bottom, now_utc=None):
     """
