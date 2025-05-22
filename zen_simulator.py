@@ -18,8 +18,9 @@ def load_data_from_csv(csv_path):
 
 
 def fallback_ichimoku_exit(trade, idx, candles, ichimoku):
-    if idx >= len(candles):
+    if idx >= len(ichimoku["tenkan_sen"]) or ichimoku["tenkan_sen"][idx] is None:
         return False
+
     price = candles[idx]['close']
     tenkan = ichimoku['tenkan_sen'][idx]
     kijun = ichimoku['kijun_sen'][idx]
@@ -35,17 +36,15 @@ def fallback_ichimoku_exit(trade, idx, candles, ichimoku):
         lower = min(span_a, span_b)
         in_kumo = lower <= price <= upper
 
-    if idx >= 26:
-        chikou = chikou_data[idx - 26]
-        if chikou and isinstance(chikou, tuple):
-            chikou_price = chikou[1]
-            back_candle = candles[idx - 26]
-            high = back_candle['high']
-            low = back_candle['low']
-            if trade['direction'] == "bullish" and chikou_price < low:
-                return True
-            if trade['direction'] == "bearish" and chikou_price > high:
-                return True
+    if idx >= 26 and isinstance(chikou_data[idx - 26], tuple):
+        chikou_price = chikou_data[idx - 26][1]
+        back_candle = candles[idx - 26]
+        high = back_candle['high']
+        low = back_candle['low']
+        if trade['direction'] == "bullish" and chikou_price < low:
+            return True
+        if trade['direction'] == "bearish" and chikou_price > high:
+            return True
 
     return tenkan_cross or in_kumo
 
@@ -75,19 +74,18 @@ def simulate_trade_lifecycle(df, start_index, entry_price, direction, intent, ic
             for row in df.iloc[:i+1].itertuples()
         ]
 
-        # Mood reevaluation
         try:
             intent_now = get_intent(candle_dicts, ichimoku['senkou_span_a'][i][1], ichimoku['senkou_span_b'][i][1])
             if mood_conflict(trade['entry_mood'], trade['entry_confidence'], intent_now['mood'], trade['direction']):
                 trade['mood_strikes'] += 1
                 if trade['mood_strikes'] >= 2:
-                    return i, price, "Mood Shift", round((price - trade['entry_price']) * 10000, 1) if direction == "bullish" else round((trade['entry_price'] - price) * 10000, 1)
+                    pnl = price - trade['entry_price'] if direction == "bullish" else trade['entry_price'] - price
+                    return i, price, "Mood Shift", round(pnl * 10000, 1)
             else:
                 trade['mood_strikes'] = 0
         except:
             pass
 
-        # Update trailing stop
         if trade['direction'] == "bullish":
             trade['max_favorable_price'] = max(price, trade['max_favorable_price'])
         else:
@@ -104,29 +102,31 @@ def simulate_trade_lifecycle(df, start_index, entry_price, direction, intent, ic
                 return i, price, "Trailing Stop", round((trade['entry_price'] - price) * 10000, 1)
 
         if fallback_ichimoku_exit(trade, i, candle_dicts, ichimoku):
-            return i, price, "Ichimoku Exit", round((price - trade['entry_price']) * 10000, 1) if direction == "bullish" else round((trade['entry_price'] - price) * 10000, 1)
+            pnl = price - trade['entry_price'] if direction == "bullish" else trade['entry_price'] - price
+            return i, price, "Ichimoku Exit", round(pnl * 10000, 1)
 
-    # Timeout fallback
     final_price = df.iloc[min(start_index + 50, len(df) - 1)]['close']
-    pnl = (final_price - trade['entry_price']) if direction == "bullish" else (trade['entry_price'] - final_price)
+    pnl = final_price - trade['entry_price'] if direction == "bullish" else trade['entry_price'] - final_price
     return min(start_index + 50, len(df) - 1), final_price, "Timeout Exit", round(pnl * 10000, 1)
 
 
 def run_simulation(df, instrument="EUR_USD", lookback_window=100, show_logs=True):
     trades = []
-    i = lookback_window
+    i = lookback_window + 52  # Ensure sufficient Ichimoku data
     while i < len(df):
-        candles = df.iloc[i - lookback_window:i]
-        candle_dicts = [
+        candles_for_ichimoku = df.iloc[i - lookback_window - 52 : i]
+        candle_dicts_full = [
             {"open": row.open, "high": row.high, "low": row.low, "close": row.close}
-            for row in candles.itertuples()
+            for row in candles_for_ichimoku.itertuples()
         ]
-        ichimoku = compute_ichimoku(candle_dicts)
+        ichimoku = compute_ichimoku(candle_dicts_full)
+
+        candles_recent = candle_dicts_full[-lookback_window:]
         cloud_top = ichimoku["senkou_span_a"][-1][1]
         cloud_bottom = ichimoku["senkou_span_b"][-1][1]
-        intent = get_intent(candle_dicts, cloud_top, cloud_bottom)
+        intent = get_intent(candles_recent, cloud_top, cloud_bottom)
 
-        ha_df = compute_heiken_ashi(candles)
+        ha_df = compute_heiken_ashi(df.iloc[i - lookback_window:i])
         ha_trend = ha_trend_strength(ha_df)
 
         if intent["should_trade"]:
@@ -135,7 +135,7 @@ def run_simulation(df, instrument="EUR_USD", lookback_window=100, show_logs=True
                 (intent["type"] == "bearish_bias" and ha_trend == -1)
             )
             if ha_confirms:
-                entry_price = candle_dicts[-1]["close"]
+                entry_price = candles_recent[-1]["close"]
                 direction = "bullish" if intent["type"] == "bullish_bias" else "bearish"
 
                 exit_idx, exit_price, reason, pnl = simulate_trade_lifecycle(df, i, entry_price, direction, intent, ichimoku)
