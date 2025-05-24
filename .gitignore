@@ -1,27 +1,26 @@
-﻿# Archive and backup files
-archive/
-
-# OS and IDE noise
+﻿# OS and Editor junk
 .DS_Store
 Thumbs.db
+
+# Python cache
+__pycache__/
 *.pyc
 
-# Python and Jupyter temp files
-__pycache__/
+# Jupyter Notebook noise
 .ipynb_checkpoints/
+*.ipynb
+
+# Logs, outputs, and temp files
 *.log
 *.tmp
-
-# CSVs — ignore all except final cleaned datasets
+*.bak
 *.csv
-!datasets/EURUSD_M15_ichimoku.csv
 
-# Environment and credentials
-env
+# Secrets and environment files
 .env
-.venv/
+*.env
 
-# Ignore entire noisy project folders
+# Ignored project subfolders
 archive/
 charts/
 datasets/
@@ -29,3 +28,10 @@ logs/
 misc/
 sketches/
 utils/
+.venv/
+
+# Node (in case of future use)
+node_modules/
+
+# VSCode settings (optional)
+.vscode/
