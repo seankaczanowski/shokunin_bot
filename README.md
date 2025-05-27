@@ -37,3 +37,16 @@ shokunin_bot/
 ├── requirements-dev.txt   # Extra tools for notebooks, plots
 ├── setup_env.bat          # Quick setup for production bot
 ├── setup_dev.bat          # Adds dev tools (Jupyter, seaborn, etc.)
+
+---
+
+## 🏷️ Legacy
+
+This project was originally developed under the name `zen_trader_bot`, a freeform exploration into intuition-led trading with poetic ambition. That spirit lives on—but `shokunin_bot` represents a refined evolution: clean, disciplined, and purpose-built.
+
+Every line of code now reflects the craft.
+
+> “Perfection is not when there is nothing more to add,  
+> but when there is nothing left to take away.” — Antoine de Saint-Exupéry
+
+---
