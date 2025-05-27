@@ -1,4 +1,4 @@
-﻿# OS and Editor junk
+﻿# macOS & Windows system files
 .DS_Store
 Thumbs.db
 
@@ -6,21 +6,23 @@ Thumbs.db
 __pycache__/
 *.pyc
 
-# Jupyter Notebook noise
+# Jupyter Notebook artifacts
 .ipynb_checkpoints/
 *.ipynb
 
-# Logs, outputs, and temp files
+# Logs, data outputs, and temp files
 *.log
 *.tmp
 *.bak
+
+# CSVs (if generated or temporary)
 *.csv
 
-# Secrets and environment files
+# Secrets and environment configs
 .env
 *.env
 
-# Ignored project subfolders
+# Project subfolders to ignore
 archive/
 charts/
 datasets/
@@ -30,8 +32,8 @@ sketches/
 utils/
 .venv/
 
-# Node (in case of future use)
-node_modules/
-
-# VSCode settings (optional)
+# Editor settings
 .vscode/
+
+# Node.js (in case of future web dashboard, etc.)
+node_modules/

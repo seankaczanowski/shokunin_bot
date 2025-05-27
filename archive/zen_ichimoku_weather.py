@@ -32,13 +32,7 @@ def fetch_candles(client, instrument, granularity="M5", count=100):
             })
     return parsed_candles
 
-def compute_ichimoku(candles):
-    """
-    Compute Ichimoku components from candles.
-    """
-    highs = [c['high'] for c in candles]
-    lows = [c['low'] for c in candles]
-    closes = [c['close'] for c in candles]
+
 
     tenkan_sen = []
     kijun_sen = []

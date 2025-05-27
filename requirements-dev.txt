@@ -1,0 +1,7 @@
+jupyterlab
+ipykernel
+seaborn
+plotly
+requests
+statsmodels
+PyYAML
