@@ -4,37 +4,36 @@
 # Standard Defaults & Behaviours
 # Files Paths & Storage
 
-# Dependencies
-# Standard Imports
+# --- dependencies ---
 import os
 from dotenv import load_dotenv
 
-# Load Environment Variables
-load_dotenv()  # Automatically loads .env into os.environ
+# --- environment loading ---
+load_dotenv()  # loads .env into os.environ
 
-# Broker Settings
+# --- broker settings ---
 OANDA_ACCOUNT_ID = os.getenv("OANDA_ACCOUNT_ID")
 OANDA_ACCESS_TOKEN = os.getenv("OANDA_ACCESS_TOKEN")
-OANDA_ENVIRONMENT = os.getenv("OANDA_ENVIRONMENT", "practice")  # default to "practice"
+OANDA_ENVIRONMENT = os.getenv("OANDA_ENVIRONMENT", "practice")
 
-# Instrument & Market Settings
+# --- instrument & market settings ---
 INSTRUMENT_PAIRS = ["EUR_USD", "USD_CAD", "USD_JPY"]
-GRANULARITY = "M15"           # Options: S5, S10, M1, M15, H1, D, etc.
-CANDLE_COUNT = 100            # How many candles to fetch per request
+GRANULARITY = "M15"
+CANDLE_COUNT = 100
 
-# Strategy Defaults
+# --- strategy defaults ---
 DEFAULT_TAKE_PROFIT_PIPS = 10
 DEFAULT_STOP_LOSS_PIPS = 5
-MAX_CONCURRENT_TRADES = 2     # How many open trades the bot is allowed to manage at once
+MAX_CONCURRENT_TRADES = 2
 
-# Bot Behavior Settings
-SHADOW_MODE = False           # If True, log trades but don't execute
-LOG_LEVEL = "INFO"            # Can be: DEBUG, INFO, WARNING, ERROR, CRITICAL
+# --- bot behavior ---
+SHADOW_MODE = False
+LOG_LEVEL = "INFO"
 
-# File Paths & Storage
+# --- file paths ---
 DATA_DIR = "datasets/"
 LOG_FILE = "logs/zen_log.csv"
 SHADOW_TRADE_LOG = "logs/shadow_trades.csv"
 
-# Miscellaneous
-TIMEZONE = "UTC"              # Can be changed to local timezone for timestamp alignment
+# --- misc ---
+TIMEZONE = "UTC"
