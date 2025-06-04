@@ -32,8 +32,10 @@ LOG_LEVEL = "INFO"
 
 # --- file paths ---
 DATA_DIR = "datasets/"
-LOG_FILE = "logs/zen_log.csv"
 SHADOW_TRADE_LOG = "logs/shadow_trades.csv"
+TRADE_LOG_FILE = "logs/trade_log.csv"
 
 # --- misc ---
 TIMEZONE = "UTC"
+
+
